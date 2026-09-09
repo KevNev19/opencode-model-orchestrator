@@ -8,10 +8,13 @@ import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import { createOpencodeClient } from "@opencode-ai/sdk";
-import { Store } from "../src/store.js";
+import { isCode, Store } from "../src/store.js";
 
 async function listen(server: Server): Promise<number> {
-  await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+  await new Promise<void>((done, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", done);
+  });
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("No TCP port");
   return address.port;
@@ -25,7 +28,13 @@ for (const scenario of ["success", "parent-read-deny"]) {
     const base = realpathSync(mkdtempSync(join(tmpdir(), "orchestrator-live-")));
     const root = join(base, "project");
     mkdirSync(root);
-    t.after(() => rmSync(base, { recursive: true, force: true }));
+    let stopRuntime = async () => {};
+    let stopModel = () => {};
+    t.after(async () => {
+      await stopRuntime();
+      stopModel();
+      rmSync(base, { recursive: true, force: true });
+    });
     writeFileSync(join(root, "value.mjs"), "export const value = 1;\n");
     writeFileSync(join(root, "secret.txt"), "private fixture content");
     const models: string[] = [];
@@ -129,10 +138,10 @@ for (const scenario of ["success", "parent-read-deny"]) {
       }
     });
     const modelPort = await listen(modelServer);
-    t.after(() => {
+    stopModel = () => {
       modelServer.closeAllConnections();
       modelServer.close();
-    });
+    };
     const reservation = createServer();
     const port = await listen(reservation);
     await new Promise<void>((done) => reservation.close(() => done()));
@@ -184,9 +193,10 @@ for (const scenario of ["success", "parent-read-deny"]) {
     );
     const runtime = spawn(
       process.env.OPENCODE_TEST_BINARY ?? "opencode",
-      ["serve", "--hostname", "127.0.0.1", "--port", String(port)],
+      ["serve", "--hostname", "127.0.0.1", "--port", String(port), "--print-logs"],
       {
         cwd: root,
+        detached: true,
         env: {
           ...process.env,
           OPENCODE_SERVER_PASSWORD: "",
@@ -199,38 +209,59 @@ for (const scenario of ["success", "parent-read-deny"]) {
         stdio: ["ignore", "pipe", "pipe"],
       },
     );
+    let stage = "server health";
     let logs = "";
     runtime.stdout.on("data", (chunk) => {
-      logs += chunk.toString();
+      logs = (logs + chunk.toString()).slice(-40000);
     });
     runtime.stderr.on("data", (chunk) => {
-      logs += chunk.toString();
+      logs = (logs + chunk.toString()).slice(-40000);
     });
-    t.after(async () => {
-      runtime.kill("SIGTERM");
-      if (runtime.exitCode === null)
+    runtime.on("error", (error) => {
+      logs += error.message;
+    });
+    const signalRuntime = (signal: NodeJS.Signals) => {
+      if (!runtime.pid) return;
+      try {
+        process.kill(-runtime.pid, signal);
+      } catch (error) {
+        if (!isCode(error, "ESRCH")) throw error;
+      }
+    };
+    stopRuntime = async () => {
+      signalRuntime("SIGTERM");
+      if (runtime.exitCode === null && runtime.signalCode === null)
         await Promise.race([
           new Promise<void>((done) => runtime.once("exit", () => done())),
-          delay(3000).then(() => {
-            runtime.kill("SIGKILL");
-          }),
+          delay(3000),
         ]);
-    });
+      signalRuntime("SIGKILL");
+      if (stage !== "complete") t.diagnostic(JSON.stringify({ stage, models, logs }));
+    };
     const url = `http://127.0.0.1:${port}`;
+    let healthy = false;
     for (let count = 0; count < 100; count++) {
       try {
-        if ((await fetch(`${url}/global/health`)).ok) break;
+        if ((await fetch(`${url}/global/health`, { signal: AbortSignal.timeout(2000) })).ok) {
+          healthy = true;
+          break;
+        }
       } catch {
         /* Server startup may take several seconds. */
       }
-      if (runtime.exitCode !== null) throw new Error(`OpenCode exited: ${logs}`);
+      if (runtime.exitCode !== null || runtime.signalCode !== null)
+        throw new Error(`OpenCode exited: ${logs}`);
       await delay(200);
     }
+    assert.equal(healthy, true, `OpenCode health check failed: ${logs}`);
     const client = createOpencodeClient({ baseUrl: url, directory: root });
+    stage = "create session";
     const session = await client.session.create({
       body: { title: "Local orchestration integration" },
+      signal: AbortSignal.any([t.signal, AbortSignal.timeout(20000)]),
     });
     assert.ok(session.data, JSON.stringify(session.error) + logs);
+    stage = "coordinator prompt";
     const reply = await client.session.prompt({
       path: { id: session.data.id },
       body: {
@@ -240,11 +271,15 @@ for (const scenario of ["success", "parent-read-deny"]) {
           { type: "text", text: "Set value to 2. Delegate, verify and accept the assignment." },
         ],
       },
-      signal: AbortSignal.timeout(80000),
+      signal: AbortSignal.any([t.signal, AbortSignal.timeout(60000)]),
     });
     assert.ok(reply.data, JSON.stringify(reply.error) + logs);
     const tasks = new Store(root).list();
-    const history = await client.session.messages({ path: { id: session.data.id } });
+    stage = "read history";
+    const history = await client.session.messages({
+      path: { id: session.data.id },
+      signal: AbortSignal.any([t.signal, AbortSignal.timeout(10000)]),
+    });
     assert.equal(
       tasks.length,
       1,
@@ -261,5 +296,6 @@ for (const scenario of ["success", "parent-read-deny"]) {
       scenario === "success" ? "export const value = 2;\n" : "export const value = 1;\n",
     );
     assert.ok(models.includes("coordinator") && models.includes("coder"));
+    stage = "complete";
   });
 }
