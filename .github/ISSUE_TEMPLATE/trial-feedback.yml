@@ -1,0 +1,35 @@
+name: Trial feedback
+description: Share what happened when using the alpha with your own models.
+title: "[Trial] "
+body:
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Node version, OpenCode version and plugin release.
+    validations:
+      required: true
+  - type: textarea
+    id: models
+    attributes:
+      label: Coordinator and worker models
+      description: List model IDs and roles without credentials or private endpoints.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Task and outcome
+      description: What did you ask for, did verification pass, and was the result accepted and correct?
+    validations:
+      required: true
+  - type: textarea
+    id: experience
+    attributes:
+      label: Setup, permissions and recovery
+      description: Include confusing steps, interruptions or blocked assignments.
+  - type: textarea
+    id: comparison
+    attributes:
+      label: Timing and comparison
+      description: Optional elapsed time, provider usage and a single-model comparison from the same starting files. Label estimates. Redact private data.

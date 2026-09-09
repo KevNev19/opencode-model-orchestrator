@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: ${{ matrix.os }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            node: "22.6.0"
+          - os: ubuntu-latest
+            node: "24"
+          - os: macos-latest
+            node: "24"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Install project dependencies
+        run: npm ci
+      - name: Install the pinned OpenCode runtime
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/opencode-runtime" --no-save --no-package-lock opencode-ai@1.18.30
+          runtime="$RUNNER_TEMP/opencode-runtime/node_modules/.bin/opencode"
+          test "$("$runtime" --version)" = "1.18.30"
+          printf 'OPENCODE_TEST_BINARY=%s\n' "$runtime" >> "$GITHUB_ENV"
+      - name: Check types, formatting, tests and build
+        run: npm run check
+      - name: Check distribution contents
+        run: npm pack --dry-run

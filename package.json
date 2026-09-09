@@ -1,7 +1,23 @@
 {
   "name": "opencode-model-orchestrator",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "description": "Model routing and verifiable delegation for OpenCode",
+  "license": "MIT",
+  "author": "Kevin Addison",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KevNev19/opencode-model-orchestrator.git"
+  },
+  "homepage": "https://github.com/KevNev19/opencode-model-orchestrator#readme",
+  "bugs": {
+    "url": "https://github.com/KevNev19/opencode-model-orchestrator/issues"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "orchestration",
+    "model-routing"
+  ],
   "type": "module",
   "engines": {
     "node": ">=22.6.0"
@@ -15,6 +31,7 @@
   },
   "files": [
     "dist",
+    "examples/greeting",
     "orchestrator.example.json"
   ],
   "scripts": {

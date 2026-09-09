@@ -1,0 +1,4 @@
+.orchestrator/
+.opencode/plugins/model-orchestrator.js
+orchestrator.json
+node_modules/

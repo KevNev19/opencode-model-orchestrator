@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a reproducible orchestration, installation or recovery defect.
+title: "[Bug] "
+body:
+  - type: input
+    id: versions
+    attributes:
+      label: Environment
+      description: Include operating system, Node version, OpenCode version and plugin release.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Use a small example and include relevant model routes and checks.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual behavior
+      description: Include the assignment status and error if available.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted evidence
+      description: Remove credentials, private prompts, code, personal paths and provider responses before sharing logs.
