@@ -1,0 +1,17 @@
+{
+  "routes": {
+    "explore": { "models": ["provider/fast-model"] },
+    "implement": { "models": ["provider/coding-model"] },
+    "review": {
+      "models": ["provider/review-model", "provider/coding-model"],
+      "preferDifferent": true
+    }
+  },
+  "maxConcurrent": 3,
+  "maxAttempts": 2,
+  "timeoutMs": 600000,
+  "workerSteps": 30,
+  "checkTimeoutMs": 120000,
+  "verificationInputs": [],
+  "checks": { "test": ["npm", "test"], "typecheck": ["npm", "run", "typecheck"] }
+}

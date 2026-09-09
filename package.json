@@ -1,0 +1,41 @@
+{
+  "name": "opencode-model-orchestrator",
+  "version": "0.1.0",
+  "description": "Model routing and verifiable delegation for OpenCode",
+  "type": "module",
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "exports": {
+    ".": "./dist/plugin.js",
+    "./core": "./dist/orchestrator.js"
+  },
+  "bin": {
+    "oc-orchestrator": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "orchestrator.example.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "pretest": "npm run build",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "1.18.30",
+    "@opencode-ai/sdk": "1.18.30",
+    "zod": "4.1.8"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12",
+    "@types/node": "26.0.0",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2"
+  }
+}

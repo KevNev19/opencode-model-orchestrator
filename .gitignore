@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.orchestrator/
+orchestrator.json
+.opencode/plugins/model-orchestrator.js
+*.tgz
+.DS_Store
